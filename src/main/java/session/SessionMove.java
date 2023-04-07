@@ -1,10 +1,9 @@
 package session;
 
 import card.Card;
+import exception.InvalidMoveException;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class SessionMove implements Comparable<SessionMove> {
     private final String sessionDataString;
@@ -28,6 +27,9 @@ public class SessionMove implements Comparable<SessionMove> {
         Arrays.asList(data[4].split("-")).forEach(card -> dealerCards.add(new Card(card)));
         Arrays.asList(data[5].split("-")).forEach(card -> playerCards.add(new Card(card)));
     }
+
+
+
     public int getTimeStamp() {
         return timeStamp;
     }

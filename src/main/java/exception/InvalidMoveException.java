@@ -1,21 +1,23 @@
 package exception;
 
+import session.SessionMove;
+
 public class InvalidMoveException extends IllegalArgumentException {
     String errormessage;
-    String illegalMoveString;
+    SessionMove illegalMove;
 
 
-    public InvalidMoveException(String errormessage, String illegalMoveString) {
+    public InvalidMoveException(String errormessage, SessionMove illegalMove) {
         this.errormessage = errormessage;
-        this.illegalMoveString = illegalMoveString;
+        this.illegalMove = illegalMove;
     }
 
 
     public String getErrormessage() {
         return errormessage;
     }
-    public String getIllegalMoveString() {
-        return illegalMoveString;
+    public SessionMove getIllegalMove() {
+        return illegalMove;
     }
 
 

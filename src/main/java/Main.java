@@ -1,6 +1,6 @@
 
+import card.Card;
 import exception.InvalidMoveException;
-import session.Session;
 import session.SessionMove;
 
 import java.io.*;
@@ -9,11 +9,10 @@ import java.util.*;
 public class Main {
     public static void main(String[] args) {
 
-        String dataFilename = "game_data.txt";
+        String dataFilename = "game_data_2.txt";
         String resultFilename = "analyzer_results.txt";
-        List<String> errors = new ArrayList<>();
-        Map<Integer, Session> sessionMap = new TreeMap<>();
-
+        Map<Integer, SessionMove> newMap = new TreeMap<>();
+        long startTime = System.currentTimeMillis();
         //read data
         try {
             InputStream inputStream = Main.class.getClassLoader().getResourceAsStream(dataFilename);
@@ -22,17 +21,16 @@ public class Main {
             while((line = reader.readLine()) != null) {
                 try {
                     SessionMove move = new SessionMove(line);
-                    int sessionId = move.getSessionId();
-                    Session session;
+                    checkIfMoveIsValid(move);
 
-                    if(!sessionMap.containsKey(sessionId)){
-                        session = new Session();
-                    } else {
-                        session = sessionMap.get(sessionId);
+
+                } catch (InvalidMoveException e){
+                    int sessionId = e.getIllegalMove().getSessionId();
+                    SessionMove move = e.getIllegalMove();
+                    if(!newMap.containsKey(sessionId) || newMap.get(sessionId).getTimeStamp() >  move.getTimeStamp()){
+                        newMap.put(sessionId, move);
                     }
-                    session.addMove(move);
-                    sessionMap.put(sessionId, session);
-
+                
                 } catch (IllegalArgumentException e){
                     //just ignore faulty lines in .txt file
                 }
@@ -43,36 +41,83 @@ public class Main {
             throw new RuntimeException("file named: " + dataFilename + " not found");
         }
 
-        //sort each session by timestamps
-        sessionMap.forEach((key, session) -> {
-            Collections.sort(session.getSessionMoves());
-            //session.getSessionMoves().forEach(move -> System.out.println(move.getSessionDataString()));
-        });
+        long endTime = System.currentTimeMillis();
 
-        //check for invalid moves and add them to list if found
-        sessionMap.forEach((key, session) -> {
-            try {
-                session.checkMoves();
-            } catch (InvalidMoveException e){
-                errors.add(e.getIllegalMoveString());
-                System.out.println(e.getErrormessage() + ", Move: " + e.getIllegalMoveString());
-            }
-        });
+        System.out.println("Program ran in: " + (endTime-startTime) + "ms");
 
-        //write the output
         try {
             File file = new File(resultFilename);
             if(file.exists()) {
                 file.delete();
             }
             FileWriter fileWriter = new FileWriter(resultFilename);
-            for(String error: errors){
-                fileWriter.write(error + "\n");
+            for(SessionMove errorMove: newMap.values()){
+                fileWriter.write(errorMove.getSessionDataString() + "\n");
             }
             fileWriter.close();
         } catch (IOException e){
             System.out.println("Error writing file");
         }
 
+    }
+
+    public static void checkIfMoveIsValid(SessionMove move) throws InvalidMoveException {
+        checkIfCardsAreValid(move);
+
+        switch (move.getMove().toLowerCase()) {
+
+            case "hit":
+                if(move.getPlayerCardsValue() > 21) {
+                    throw new InvalidMoveException("Cannot hit when bust", move);
+                }
+                if(move.getPlayerCardsValue() > 19 && move.getActor() == 'P') { //
+                    throw new InvalidMoveException("Hitting will definitely make player go bust", move);
+                }
+                if (move.getDealerCardsValue() > 17) {
+                    throw new InvalidMoveException("Dealer should not have hit if their hand exceeds 17", move);
+                }
+                break;
+
+            case "stand":
+                if(move.getPlayerCardsValue() > 21) {
+                    throw new InvalidMoveException("Player is already bust", move);
+                }
+
+                break;
+            case "win":
+                if(move.getActor() == 'P' && move.getDealerCardsValue() < 17) {
+                    throw new InvalidMoveException("Dealer should have hit a new card", move);
+                }
+
+                if( move.getDealerCardsValue() > move.getPlayerCardsValue() || move.getPlayerCardsValue() > 21) {
+                    throw new InvalidMoveException("Player should have lost", move);
+                }
+                break;
+
+            case "lose":
+                if(move.getPlayerCardsValue() >= move.getDealerCardsValue() && move.getPlayerCardsValue() <= 21 ||
+                        move.getDealerCardsValue() > 21 && move.getPlayerCardsValue() <= 21){
+                    throw new InvalidMoveException("Player should have won", move);
+                }
+                break;
+        }
+
+    }
+
+    private static void checkIfCardsAreValid(SessionMove move) {
+        List<Card> usedCardsList = new ArrayList<>();
+        usedCardsList.addAll(move.getPlayerCards());
+        usedCardsList.addAll(move.getDealerCards());
+
+        usedCardsList.forEach(card -> {
+            if(card.getValue() < 0) {
+                throw new InvalidMoveException("Move contains an invalid card", move);
+            }
+        });
+
+        Set<Card> usedCardsSet = new HashSet<>(usedCardsList); //set does not allow duplicate cards
+        if(usedCardsSet.size() != usedCardsList.size()){
+            throw new InvalidMoveException("Move contains a duplicate card", move);
+        }
     }
 }
